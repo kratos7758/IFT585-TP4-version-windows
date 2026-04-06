@@ -1,0 +1,39 @@
+{
+  "invitations": [
+    {
+      "directory_id": "4e96ed58-0336-4653-83c8-7c045879cd48",
+      "from_user": "alain",
+      "id": "f6177d76-0e22-4f31-b5d6-4fc596eb5a88",
+      "status": "accepted",
+      "to_user": "marc"
+    },
+    {
+      "directory_id": "b4a72300-f312-44e3-85eb-9afb48502e7e",
+      "from_user": "alain",
+      "id": "5f8e855d-d264-4969-b07b-d2c4a022f365",
+      "status": "accepted",
+      "to_user": "marc"
+    },
+    {
+      "directory_id": "5c8e7681-c11c-42d2-abea-be29d0974010",
+      "from_user": "alain",
+      "id": "34ac698f-d35b-4b86-8fd0-14c56e9b3196",
+      "status": "accepted",
+      "to_user": "marc"
+    },
+    {
+      "directory_id": "4e96ed58-0336-4653-83c8-7c045879cd48",
+      "from_user": "alain",
+      "id": "721e48ce-9067-4c67-b641-65aad6a4941a",
+      "status": "accepted",
+      "to_user": "marc"
+    },
+    {
+      "directory_id": "b4a72300-f312-44e3-85eb-9afb48502e7e",
+      "from_user": "alain",
+      "id": "de9bae13-56d5-429a-acd9-8cac8a18cc48",
+      "status": "accepted",
+      "to_user": "marc"
+    }
+  ]
+}

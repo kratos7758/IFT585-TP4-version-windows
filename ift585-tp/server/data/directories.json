@@ -1,0 +1,31 @@
+{
+  "directories": [
+    {
+      "admin": "alain",
+      "id": "b4a72300-f312-44e3-85eb-9afb48502e7e",
+      "members": [
+        "alain",
+        "marc"
+      ],
+      "name": "dossier alain1"
+    },
+    {
+      "admin": "alain",
+      "id": "4e96ed58-0336-4653-83c8-7c045879cd48",
+      "members": [
+        "alain",
+        "marc"
+      ],
+      "name": "Projet-IFT585\r"
+    },
+    {
+      "admin": "marc",
+      "id": "5c8e7681-c11c-42d2-abea-be29d0974010",
+      "members": [
+        "alain",
+        "marc"
+      ],
+      "name": "dossier test"
+    }
+  ]
+}

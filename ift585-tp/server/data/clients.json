@@ -1,0 +1,18 @@
+{
+  "clients": [
+    {
+      "password_hash": "eb9512d8149684a621bf8bd30933bd8c657c6dd9e307874b81e6dec93b17453f",
+      "session_token": "eb4fa4c5-0563-463b-9f6e-572c3fd0834d",
+      "status": "online",
+      "token_expiry": 0,
+      "username": "alain"
+    },
+    {
+      "password_hash": "4697c20f8a70fcad6323e007d553cfe05d4433f81be70884ea3b4834b147f4c1",
+      "session_token": "08b0d9c0-5fad-469f-9525-df301ee1a751",
+      "status": "online",
+      "token_expiry": 0,
+      "username": "marc"
+    }
+  ]
+}
