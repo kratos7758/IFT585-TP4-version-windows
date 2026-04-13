@@ -23,8 +23,14 @@
 #  pragma comment(lib, "ws2_32.lib")
 
 // Types manquants sur Windows
-typedef int          ssize_t;
-typedef int          socklen_t;
+#ifndef _SSIZE_T_DEFINED
+#  define _SSIZE_T_DEFINED
+   typedef int       ssize_t;
+#endif
+#ifndef _SOCKLEN_T
+#  define _SOCKLEN_T
+   typedef int       socklen_t;
+#endif
 
 // Fermeture d'un descripteur de socket
 inline int socket_close(int fd) { return closesocket((SOCKET)fd); }

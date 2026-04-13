@@ -253,7 +253,7 @@ void ClientApp::startSyncForDir(const std::string& dirId) {
         if (!mainWin_) return;
         switch (s) {
         case SyncEngine::Status::SYNCING: mainWin_->setSyncStatus("syncing"); break;
-        case SyncEngine::Status::ERROR:
+        case SyncEngine::Status::SYNC_ERROR:
         case SyncEngine::Status::OFFLINE: mainWin_->setSyncStatus("offline"); break;
         default: mainWin_->setSyncStatus("idle"); break;
         }

@@ -2,8 +2,8 @@
   "clients": [
     {
       "password_hash": "eb9512d8149684a621bf8bd30933bd8c657c6dd9e307874b81e6dec93b17453f",
-      "session_token": "",
-      "status": "offline",
+      "session_token": "6dd1d1dd-5768-40f5-b740-78db220966b0",
+      "status": "online",
       "token_expiry": 0,
       "username": "alain"
     },

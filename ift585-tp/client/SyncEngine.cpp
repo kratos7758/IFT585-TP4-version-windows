@@ -119,12 +119,12 @@ void SyncEngine::runSyncCycle() {
     HttpResult res = net_.post("/sync/" + dirId_, arr.dump());
     if (!res.ok()) {
         std::cerr << "[SyncEngine] POST /sync/ ÉCHEC (HTTP " << res.statusCode << ")\n";
-        setStatus(Status::ERROR);
+        setStatus(Status::SYNC_ERROR);
         return;
     }
 
     Json resp;
-    try { resp = Json::parse(res.body); } catch (...) { setStatus(Status::ERROR); return; }
+    try { resp = Json::parse(res.body); } catch (...) { setStatus(Status::SYNC_ERROR); return; }
 
     // Fichiers à télécharger
     if (resp.contains("to_download") && resp.at("to_download").is_array()) {

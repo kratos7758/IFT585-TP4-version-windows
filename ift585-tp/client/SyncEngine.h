@@ -40,7 +40,7 @@ public:
     void forceSync();
 
     // Statut courant
-    enum class Status { IDLE, SYNCING, ERROR, OFFLINE };
+    enum class Status { IDLE, SYNCING, SYNC_ERROR, OFFLINE };
     Status getStatus() const { return status_; }
 
     using StatusCallback = std::function<void(Status)>;
