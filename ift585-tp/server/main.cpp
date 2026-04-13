@@ -2,11 +2,16 @@
 //  server/main.cpp  –  Point d'entrée du serveur IFT585-TP
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "ServerCore.h"
 #include <iostream>
 #include <cstdlib>
 
 int main(int argc, char* argv[]) {
+    if (!platform_net_init()) {
+        std::cerr << "[ERREUR] Impossible d'initialiser le réseau\n";
+        return 1;
+    }
     std::string dataDir = "./data";
     int udpPort = 8888;
     int tcpPort = 80;
@@ -36,5 +41,7 @@ int main(int argc, char* argv[]) {
     std::cout << "[CONFIG] Port TCP : " << tcpPort << "\n\n";
 
     ServerCore server(dataDir, udpPort, tcpPort);
-    return server.run() ? 0 : 1;
+    int ret = server.run() ? 0 : 1;
+    platform_net_cleanup();
+    return ret;
 }

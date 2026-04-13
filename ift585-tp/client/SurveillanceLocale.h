@@ -3,8 +3,9 @@
 //  SurveillanceLocale.h  –  Surveillance du système de fichiers
 //  IFT585 – TP4
 //
-//  Utilise inotify (Linux) pour détecter les créations,
-//  modifications et suppressions dans le répertoire surveillé.
+//  Windows : utilise ReadDirectoryChangesW
+//  Linux   : utilise inotify
+//
 //  Les événements sont mis en file thread-safe et consommés
 //  par SyncEngine.
 // =============================================================
@@ -55,8 +56,16 @@ public:
 private:
     std::string watchPath_;
     std::string dirId_;
-    int         inotifyFd_  = -1;
-    int         watchDescriptor_ = -1;
+
+#ifdef _WIN32
+    // Handles Windows (stockés comme void* pour éviter windows.h dans le .h)
+    void* hDir_   = nullptr;  // HANDLE vers le répertoire surveillé
+    void* hEvent_ = nullptr;  // HANDLE pour l'OVERLAPPED
+#else
+    int inotifyFd_       = -1;
+    int watchDescriptor_ = -1;
+#endif
+
     std::atomic<bool>          running_{false};
     std::thread                thread_;
     std::queue<FileEvent>      queue_;

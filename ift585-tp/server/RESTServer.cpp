@@ -2,21 +2,17 @@
 //  RESTServer.cpp  –  API HTTP/1.1 manuelle sur socket TCP
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "RESTServer.h"
 #include "../common/json.h"
 #include "../common/FileMetadata.h"
 #include "../common/sha256.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
 #include <cstring>
-#include <cerrno>
 #include <cstdio>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
-#include <sys/stat.h>
 
 // ================================================================
 //  HttpResponse helpers
@@ -46,24 +42,25 @@ RESTServer::~RESTServer() { stop(); }
 //  Démarrage
 // ================================================================
 bool RESTServer::start(int port) {
-    listenFd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenFd_ < 0) { std::cerr << "[REST] socket() : " << strerror(errno) << "\n"; return false; }
+    listenFd_ = platform_socket(AF_INET, SOCK_STREAM, 0);
+    if (listenFd_ < 0) { std::cerr << "[REST] socket() erreur\n"; return false; }
 
     int opt = 1;
-    setsockopt(listenFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(TO_SOCKET(listenFd_), SOL_SOCKET, SO_REUSEADDR,
+               reinterpret_cast<const char*>(&opt), sizeof(opt));
 
     struct sockaddr_in addr{};
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port        = htons((uint16_t)port);
 
-    if (bind(listenFd_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "[REST] bind() : " << strerror(errno) << "\n";
-        close(listenFd_); listenFd_ = -1; return false;
+    if (bind(TO_SOCKET(listenFd_), (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::cerr << "[REST] bind() erreur\n";
+        socket_close(listenFd_); listenFd_ = -1; return false;
     }
-    if (listen(listenFd_, 32) < 0) {
-        std::cerr << "[REST] listen() : " << strerror(errno) << "\n";
-        close(listenFd_); listenFd_ = -1; return false;
+    if (listen(TO_SOCKET(listenFd_), 32) < 0) {
+        std::cerr << "[REST] listen() erreur\n";
+        socket_close(listenFd_); listenFd_ = -1; return false;
     }
     running_ = true;
     acceptThread_ = std::thread(&RESTServer::acceptLoop, this);
@@ -73,7 +70,11 @@ bool RESTServer::start(int port) {
 
 void RESTServer::stop() {
     running_ = false;
-    if (listenFd_ >= 0) { shutdown(listenFd_, SHUT_RDWR); close(listenFd_); listenFd_ = -1; }
+    if (listenFd_ >= 0) {
+        shutdown(TO_SOCKET(listenFd_), SHUT_RDWR);
+        socket_close(listenFd_);
+        listenFd_ = -1;
+    }
     if (acceptThread_.joinable()) acceptThread_.join();
 }
 
@@ -81,9 +82,9 @@ void RESTServer::acceptLoop() {
     while (running_) {
         struct sockaddr_in clientAddr{};
         socklen_t len = sizeof(clientAddr);
-        int clientFd = accept(listenFd_, (struct sockaddr*)&clientAddr, &len);
-        if (clientFd < 0) { if (running_) std::cerr << "[REST] accept() : " << strerror(errno) << "\n"; break; }
-        // Chaque connexion est traitée dans un thread dédié (le pool est géré par ServerCore)
+        int clientFd = (int)accept(TO_SOCKET(listenFd_), (struct sockaddr*)&clientAddr, &len);
+        if (clientFd < 0) { if (running_) std::cerr << "[REST] accept() erreur\n"; break; }
+        // Chaque connexion est traitée dans un thread dédié
         std::thread([this, clientFd](){ handleConnection(clientFd); }).detach();
     }
 }
@@ -93,11 +94,11 @@ void RESTServer::acceptLoop() {
 // ================================================================
 void RESTServer::handleConnection(int fd) {
     HttpRequest req;
-    if (!parseRequest(fd, req)) { close(fd); return; }
+    if (!parseRequest(fd, req)) { socket_close(fd); return; }
     bool ok = extractAuth(req);
     HttpResponse res = route(req);
     sendResponse(fd, res);
-    close(fd);
+    socket_close(fd);
     (void)ok;
 }
 
@@ -108,10 +109,10 @@ bool RESTServer::parseRequest(int fd, HttpRequest& req) {
     // Lire tout ce que le client envoie (max 8 MB pour les fichiers)
     std::string raw;
     char buf[4096];
-    ssize_t n;
+    int n;
     // Lire jusqu'au double CRLF (fin des en-têtes)
     while (raw.find("\r\n\r\n") == std::string::npos) {
-        n = recv(fd, buf, sizeof(buf) - 1, 0);
+        n = recv(TO_SOCKET(fd), buf, (int)(sizeof(buf) - 1), 0);
         if (n <= 0) return false;
         buf[n] = '\0';
         raw.append(buf, n);
@@ -151,7 +152,8 @@ bool RESTServer::parseRequest(int fd, HttpRequest& req) {
 
     req.body = bodyPart;
     while ((int)req.body.size() < contentLength) {
-        n = recv(fd, buf, std::min((int)sizeof(buf)-1, contentLength - (int)req.body.size()), 0);
+        int toRead = std::min((int)sizeof(buf)-1, contentLength - (int)req.body.size());
+        n = recv(TO_SOCKET(fd), buf, toRead, 0);
         if (n <= 0) break;
         req.body.append(buf, n);
     }
@@ -177,7 +179,7 @@ void RESTServer::sendResponse(int fd, const HttpResponse& res) {
     oss << "\r\n";
     oss << res.body;
     std::string msg = oss.str();
-    send(fd, msg.c_str(), msg.size(), 0);
+    send(TO_SOCKET(fd), msg.c_str(), (int)msg.size(), 0);
 }
 
 std::string HttpResponse::statusText(int code) {

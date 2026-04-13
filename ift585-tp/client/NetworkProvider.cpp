@@ -2,16 +2,11 @@
 //  NetworkProvider.cpp
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "NetworkProvider.h"
 #include "../common/json.h"
 #include "../common/sha256.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <sys/select.h>
 #include <cstring>
-#include <cerrno>
 #include <iostream>
 #include <sstream>
 
@@ -28,28 +23,24 @@ void NetworkProvider::setServer(const std::string& ip, int udpPort, int tcpPort)
 //  UDP stop-and-wait
 // ================================================================
 int NetworkProvider::openUdpSocket() {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = platform_socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
-        std::cerr << "[UDP] socket() : " << strerror(errno) << "\n";
+        std::cerr << "[UDP] socket() erreur\n";
         return -1;
     }
-    // Timeout de réception
-    struct timeval tv{};
-    tv.tv_sec  = UDP_TIMEOUT_SEC;
-    tv.tv_usec = 0;
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    platform_set_recv_timeout(fd, UDP_TIMEOUT_SEC);
     return fd;
 }
 
 std::string NetworkProvider::udpSendRecv(int fd, const std::string& msg,
                                           const struct sockaddr_in& addr) {
-    if (sendto(fd, msg.c_str(), msg.size(), 0,
+    if (sendto(TO_SOCKET(fd), msg.c_str(), (int)msg.size(), 0,
                (const struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "[UDP] sendto() : " << strerror(errno) << "\n";
+        std::cerr << "[UDP] sendto() erreur\n";
         return "";
     }
     char buf[UDP_MAX_PKT_SIZE];
-    ssize_t n = recvfrom(fd, buf, sizeof(buf) - 1, 0, nullptr, nullptr);
+    int n = (int)recvfrom(TO_SOCKET(fd), buf, (int)(sizeof(buf) - 1), 0, nullptr, nullptr);
     if (n <= 0) return ""; // timeout ou erreur
     buf[n] = '\0';
     return std::string(buf, n);
@@ -100,7 +91,7 @@ std::string NetworkProvider::authenticate(const std::string& username,
         }
     }
 
-    close(fd);
+    socket_close(fd);
     token_ = token;
     return token;
 }
@@ -131,11 +122,11 @@ bool NetworkProvider::logout(const std::string& username) {
         try { jresp = Json::parse(resp); } catch (...) { continue; }
         if (jresp.contains("type") && jresp.at("type").get_string() == MSG_LOGOUT_ACK) {
             token_ = "";
-            close(fd);
+            socket_close(fd);
             return true;
         }
     }
-    close(fd);
+    socket_close(fd);
     return false;
 }
 
@@ -143,22 +134,20 @@ bool NetworkProvider::logout(const std::string& username) {
 //  Client HTTP/1.1 manuel
 // ================================================================
 int NetworkProvider::openTcpConnection() {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) { std::cerr << "[TCP] socket() : " << strerror(errno) << "\n"; return -1; }
+    int fd = platform_socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) { std::cerr << "[TCP] socket() erreur\n"; return -1; }
 
-    struct timeval tv{};
-    tv.tv_sec = 10; tv.tv_usec = 0;
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    platform_set_recv_timeout(fd, 10);
+    platform_set_send_timeout(fd, 10);
 
     struct sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port   = htons((uint16_t)tcpPort_);
     inet_pton(AF_INET, serverIp_.c_str(), &addr.sin_addr);
 
-    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "[TCP] connect() : " << strerror(errno) << "\n";
-        close(fd); return -1;
+    if (connect(TO_SOCKET(fd), (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::cerr << "[TCP] connect() erreur\n";
+        socket_close(fd); return -1;
     }
     return fd;
 }
@@ -184,18 +173,18 @@ HttpResult NetworkProvider::sendHttp(const std::string& method,
     if (!body.empty()) oss << body;
 
     std::string reqStr = oss.str();
-    if (send(fd, reqStr.c_str(), reqStr.size(), 0) < 0) {
-        std::cerr << "[TCP] send() : " << strerror(errno) << "\n";
-        close(fd); return {0, "Erreur envoi"};
+    if (send(TO_SOCKET(fd), reqStr.c_str(), (int)reqStr.size(), 0) < 0) {
+        std::cerr << "[TCP] send() erreur\n";
+        socket_close(fd); return {0, "Erreur envoi"};
     }
 
     // Lire la réponse complète
     std::string raw;
     char buf[4096];
-    ssize_t n;
-    while ((n = recv(fd, buf, sizeof(buf), 0)) > 0)
+    int n;
+    while ((n = recv(TO_SOCKET(fd), buf, (int)sizeof(buf), 0)) > 0)
         raw.append(buf, n);
-    close(fd);
+    socket_close(fd);
 
     return parseHttpResponse(raw);
 }

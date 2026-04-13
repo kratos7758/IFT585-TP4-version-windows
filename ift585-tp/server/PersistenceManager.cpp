@@ -2,22 +2,14 @@
 //  PersistenceManager.cpp
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "PersistenceManager.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <algorithm>
 #include <cstdio>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <cerrno>
-#include <cstring>
 #include <ctime>
-
-// ---- Générateur UUID v4 ----
-// Utilise /dev/urandom sur Linux
-#include <fcntl.h>
-#include <unistd.h>
 
 // ================================================================
 //  Constructeur
@@ -72,18 +64,15 @@ void PersistenceManager::writeDirectories(const Json& j) { writeJson(dataDir_ + 
 void PersistenceManager::writeInvitations(const Json& j) { writeJson(dataDir_ + "/invitations.json", j); }
 
 void PersistenceManager::ensureDir(const std::string& path) {
-    (void)mkdir(path.c_str(), 0755);
+    (void)platform_mkdir(path.c_str());
 }
 
 std::string PersistenceManager::makeUUID() {
     unsigned char buf[16];
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0 || read(fd, buf, 16) != 16) {
-        // Fallback si /dev/urandom non disponible
+    if (!platform_random_bytes(buf, 16)) {
         srand((unsigned)time(nullptr));
         for (auto& b : buf) b = (unsigned char)(rand() & 0xff);
     }
-    if (fd >= 0) close(fd);
 
     // RFC 4122 v4
     buf[6] = (buf[6] & 0x0f) | 0x40;
@@ -474,6 +463,5 @@ std::string PersistenceManager::getFilePath(const std::string& dirId,
 bool PersistenceManager::fileExists(const std::string& dirId,
                                      const std::string& name) {
     std::string path = getFilePath(dirId, name);
-    struct stat st;
-    return stat(path.c_str(), &st) == 0;
+    return platform_file_exists(path.c_str());
 }

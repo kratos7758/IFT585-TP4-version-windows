@@ -2,17 +2,29 @@
 //  ServerCore.cpp
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "ServerCore.h"
 #include <iostream>
 #include <csignal>
-#include <unistd.h>
 
 static ServerCore* g_instance = nullptr;
 
+#ifdef _WIN32
+// Gestionnaire Ctrl+C Windows
+static BOOL WINAPI consoleHandler(DWORD event) {
+    if (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT || event == CTRL_CLOSE_EVENT) {
+        std::cout << "\n[INFO] Interruption reçue – arrêt en cours...\n";
+        if (g_instance) g_instance->stop();
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 static void signalHandler(int sig) {
     std::cout << "\n[INFO] Signal " << sig << " reçu – arrêt en cours...\n";
     if (g_instance) g_instance->stop();
 }
+#endif
 
 ServerCore::ServerCore(const std::string& dataDir, int udpPort, int tcpPort)
     : dataDir_(dataDir)
@@ -31,9 +43,13 @@ ServerCore::~ServerCore() {
 }
 
 bool ServerCore::run() {
-    // Gestion des signaux pour arrêt propre
+    // Gestion des signaux / Ctrl+C pour arrêt propre
+#ifdef _WIN32
+    SetConsoleCtrlHandler(consoleHandler, TRUE);
+#else
     std::signal(SIGINT,  signalHandler);
     std::signal(SIGTERM, signalHandler);
+#endif
 
     std::cout << "[INFO] PersistenceManager : données chargées depuis " << dataDir_ << "/\n";
 
@@ -52,7 +68,7 @@ bool ServerCore::run() {
 
     running_ = true;
     while (running_) {
-        sleep(1);
+        platform_sleep_sec(1);
     }
 
     udpHandler_.stop();

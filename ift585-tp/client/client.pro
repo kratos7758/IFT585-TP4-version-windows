@@ -29,7 +29,10 @@ HEADERS += \
 
 # Flags de compilation
 QMAKE_CXXFLAGS += -std=c++17 -Wall -Wextra -O2
-LIBS           += -lpthread
+
+# Librairies selon la plateforme
+win32: LIBS += -lws2_32
+else:  LIBS += -lpthread
 
 # Répertoire de sortie
 DESTDIR = ../bin

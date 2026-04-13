@@ -12,13 +12,12 @@
 //    les doublons via le numéro de séquence. Le client retransmet
 //    jusqu'à 3 fois avec un timeout de 2 secondes.
 // =============================================================
+#include "../common/platform.h"
 #include <string>
 #include <unordered_map>
 #include <mutex>
 #include <thread>
 #include <atomic>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include "PersistenceManager.h"
 #include "../common/UDPProtocol.h"
 

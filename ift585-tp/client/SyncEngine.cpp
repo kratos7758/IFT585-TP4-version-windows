@@ -10,9 +10,7 @@
 #include <sstream>
 #include <chrono>
 #include <cstdio>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <filesystem>
 
 // Intervalle de polling périodique (secondes)
 static const int POLL_INTERVAL_SEC = 30;
@@ -155,31 +153,37 @@ std::vector<FileMetadata> SyncEngine::buildLocalIndex() {
     std::lock_guard<std::mutex> lock(indexMu_);
     localIndex_.clear();
 
-    DIR* dir = opendir(localDir_.c_str());
-    if (!dir) return result;
+    namespace fs = std::filesystem;
 
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        std::string name(entry->d_name);
-        if (name == "." || name == "..") continue;
+    std::error_code ec;
+    if (!fs::exists(localDir_, ec)) return result;
 
-        std::string fullPath = localDir_ + "/" + name;
-        struct stat st{};
-        if (stat(fullPath.c_str(), &st) != 0) continue;
-        if (!S_ISREG(st.st_mode)) continue; // ignorer les sous-répertoires
+    for (const auto& entry : fs::directory_iterator(localDir_, ec)) {
+        if (ec) break;
+        if (!entry.is_regular_file()) continue;
+
+        std::string name = entry.path().filename().string();
+        if (name.empty() || name[0] == '.') continue;
+
+        std::string fullPath = entry.path().string();
 
         FileMetadata meta;
         meta.name    = name;
         meta.dir_id  = dirId_;
         meta.hash    = SHA256::hashFile(fullPath);
-        meta.size    = (long long)st.st_size;
-        meta.mtime   = (long long)st.st_mtime;
+        meta.size    = (long long)entry.file_size();
+        // mtime : secondes depuis l'epoch Unix (compatible C++17)
+        auto ftime   = entry.last_write_time();
+        auto now_fs  = fs::file_time_type::clock::now();
+        auto now_sys = std::chrono::system_clock::now();
+        auto mtime_sys = std::chrono::time_point_cast<std::chrono::seconds>(
+                             now_sys + (ftime - now_fs));
+        meta.mtime   = (long long)mtime_sys.time_since_epoch().count();
         meta.deleted = false;
 
         localIndex_[name] = meta;
         result.push_back(meta);
     }
-    closedir(dir);
     return result;
 }
 

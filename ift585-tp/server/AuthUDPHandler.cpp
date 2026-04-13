@@ -2,16 +2,11 @@
 //  AuthUDPHandler.cpp
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "AuthUDPHandler.h"
 #include "../common/json.h"
 #include "../common/sha256.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <cstring>
-#include <cerrno>
 #include <ctime>
 #include <iostream>
 #include <sstream>
@@ -24,23 +19,24 @@ AuthUDPHandler::~AuthUDPHandler() { stop(); }
 //  Démarrage
 // ================================================================
 bool AuthUDPHandler::start(int port) {
-    sockfd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    sockfd_ = platform_socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd_ < 0) {
-        std::cerr << "[AuthUDP] socket() : " << strerror(errno) << "\n";
+        std::cerr << "[AuthUDP] socket() erreur\n";
         return false;
     }
 
     int opt = 1;
-    setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    setsockopt(TO_SOCKET(sockfd_), SOL_SOCKET, SO_REUSEADDR,
+               reinterpret_cast<const char*>(&opt), sizeof(opt));
 
     struct sockaddr_in addr{};
     addr.sin_family      = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port        = htons((uint16_t)port);
 
-    if (bind(sockfd_, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        std::cerr << "[AuthUDP] bind() : " << strerror(errno) << "\n";
-        close(sockfd_); sockfd_ = -1;
+    if (bind(TO_SOCKET(sockfd_), (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::cerr << "[AuthUDP] bind() erreur\n";
+        socket_close(sockfd_); sockfd_ = -1;
         return false;
     }
 
@@ -52,7 +48,11 @@ bool AuthUDPHandler::start(int port) {
 
 void AuthUDPHandler::stop() {
     running_ = false;
-    if (sockfd_ >= 0) { shutdown(sockfd_, SHUT_RDWR); close(sockfd_); sockfd_ = -1; }
+    if (sockfd_ >= 0) {
+        shutdown(TO_SOCKET(sockfd_), SHUT_RDWR);
+        socket_close(sockfd_);
+        sockfd_ = -1;
+    }
     if (thread_.joinable()) thread_.join();
 }
 
@@ -65,10 +65,10 @@ void AuthUDPHandler::listenLoop() {
         struct sockaddr_in clientAddr{};
         socklen_t addrLen = sizeof(clientAddr);
 
-        ssize_t n = recvfrom(sockfd_, buf, sizeof(buf) - 1, 0,
-                             (struct sockaddr*)&clientAddr, &addrLen);
+        int n = (int)recvfrom(TO_SOCKET(sockfd_), buf, (int)(sizeof(buf) - 1), 0,
+                              (struct sockaddr*)&clientAddr, &addrLen);
         if (n <= 0) {
-            if (running_) std::cerr << "[AuthUDP] recvfrom() : " << strerror(errno) << "\n";
+            if (running_) std::cerr << "[AuthUDP] recvfrom() erreur\n";
             break;
         }
         buf[n] = '\0';
@@ -99,7 +99,7 @@ void AuthUDPHandler::handleDatagram(const char* buf, ssize_t /*len*/,
 
     // Détection de doublon (stop-and-wait) : renvoyer le dernier ACK
     if (seq == st.last_seq && !st.last_reply.empty()) {
-        sendto(sockfd_, st.last_reply.c_str(), st.last_reply.size(), 0,
+        sendto(TO_SOCKET(sockfd_), st.last_reply.c_str(), (int)st.last_reply.size(), 0,
                (struct sockaddr*)&clientAddr, addrLen);
         return;
     }
@@ -110,12 +110,19 @@ void AuthUDPHandler::handleDatagram(const char* buf, ssize_t /*len*/,
         if (!msg.contains("username") || !msg.contains("password_hash")) return;
         std::string username = msg.at("username").get_string();
         std::string pwHash   = msg.at("password_hash").get_string();
+        // Nettoyer les caractères de contrôle éventuels (\r, \n, espaces)
+        while (!username.empty() && (username.back() == '\r' || username.back() == '\n'
+                                     || username.back() == ' '))
+            username.pop_back();
         reply = processAuthReq(username, pwHash, seq);
     }
     else if (type == MSG_LOGOUT_REQ) {
         if (!msg.contains("username") || !msg.contains("token")) return;
         std::string username = msg.at("username").get_string();
         std::string token    = msg.at("token").get_string();
+        while (!username.empty() && (username.back() == '\r' || username.back() == '\n'
+                                     || username.back() == ' '))
+            username.pop_back();
         reply = processLogoutReq(username, token, seq);
     }
     else {
@@ -125,7 +132,7 @@ void AuthUDPHandler::handleDatagram(const char* buf, ssize_t /*len*/,
     st.last_seq   = seq;
     st.last_reply = reply;
 
-    sendto(sockfd_, reply.c_str(), reply.size(), 0,
+    sendto(TO_SOCKET(sockfd_), reply.c_str(), (int)reply.size(), 0,
            (struct sockaddr*)&clientAddr, addrLen);
 }
 
@@ -154,13 +161,12 @@ std::string AuthUDPHandler::processAuthReq(const std::string& username,
         return buildAuthNak(seq, "Identifiants invalides");
     }
 
-    // Générer un nouveau SessionToken
-    // On génère un UUID v4 via PersistenceManager (accès interne indirect)
-    // Ici on le génère localement
+    // Générer un nouveau SessionToken (UUID v4)
     unsigned char ubuf[16];
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd >= 0) { ssize_t r = read(fd, ubuf, 16); (void)r; close(fd); }
-    else { srand((unsigned)time(nullptr)); for (auto& b : ubuf) b = rand() & 0xff; }
+    if (!platform_random_bytes(ubuf, 16)) {
+        srand((unsigned)time(nullptr));
+        for (auto& b : ubuf) b = (unsigned char)(rand() & 0xff);
+    }
     ubuf[6] = (ubuf[6] & 0x0f) | 0x40;
     ubuf[8] = (ubuf[8] & 0x3f) | 0x80;
     char uuidBuf[37];
@@ -220,7 +226,7 @@ std::string AuthUDPHandler::buildLogoutAck(uint32_t seq) {
 //  Helpers
 // ================================================================
 std::string AuthUDPHandler::addrKey(const struct sockaddr_in& addr) {
-    char ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &addr.sin_addr, ip, sizeof(ip));
+    char ip[INET_ADDRSTRLEN] = {};
+    inet_ntop(AF_INET, (const void*)&addr.sin_addr, ip, sizeof(ip));
     return std::string(ip) + ":" + std::to_string(ntohs(addr.sin_port));
 }

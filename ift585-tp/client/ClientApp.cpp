@@ -2,6 +2,7 @@
 //  ClientApp.cpp
 //  IFT585 – TP4
 // =============================================================
+#include "../common/platform.h"
 #include "ClientApp.h"
 #include "../common/sha256.h"
 #include "../common/json.h"
@@ -10,15 +11,23 @@
 #include <QStringList>
 #include <iostream>
 #include <cstdlib>
-#include <sys/stat.h>
+#include <filesystem>
 
 // ================================================================
 //  Constructeur / Destructeur
 // ================================================================
 ClientApp::ClientApp() {
+#ifdef _WIN32
+    const char* home = getenv("USERPROFILE");
+    if (!home) home = getenv("HOMEDRIVE");   // fallback
+    localBaseDir_ = home ? std::string(home) + "\\IFT585-TP" : "C:\\IFT585-TP";
+    // Remplacer les antislashes par des slashes pour cohérence interne
+    for (char& c : localBaseDir_) if (c == '\\') c = '/';
+#else
     const char* home = getenv("HOME");
     localBaseDir_ = home ? std::string(home) + "/IFT585-TP" : "/tmp/IFT585-TP";
-    (void)mkdir(localBaseDir_.c_str(), 0755);
+#endif
+    std::filesystem::create_directories(localBaseDir_);
 }
 
 ClientApp::~ClientApp() {
@@ -225,7 +234,7 @@ std::string ClientApp::localPath(const std::string& dirId) const {
 }
 
 void ClientApp::ensureLocalDir(const std::string& dirId) {
-    (void)mkdir(localPath(dirId).c_str(), 0755);
+    std::filesystem::create_directories(localPath(dirId));
 }
 
 void ClientApp::startSyncForDir(const std::string& dirId) {
