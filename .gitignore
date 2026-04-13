@@ -1,0 +1,11 @@
+# Dossiers de build
+ift585-tp/build-server/
+ift585-tp/build-client/
+
+# Binaire Linux (remplacé par les .exe Windows)
+ift585-tp/bin/client_ift585
+ift585-tp/server/server_ift585
+
+# Fichiers objets
+*.o
+*.obj
