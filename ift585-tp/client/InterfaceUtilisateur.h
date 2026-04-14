@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QTreeWidget>
+#include <QHeaderView>
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -65,8 +66,11 @@ public:
     void setDirectories(const QStringList& dirs, const QStringList& ids);
     void setMembers(const QStringList& members);
     void setInvitations(const QStringList& invitations, const QStringList& ids);
+    void setFiles(const QList<QStringList>& rows);
+    void setLocalPath(const std::string& path);
     void setSyncStatus(const std::string& status);
     void appendTransferLog(const std::string& msg);
+    QString getSelectedDirId() const { return selectedDirId_; }
 
     // Callbacks vers ClientApp
     using Callback0        = std::function<void()>;
@@ -77,9 +81,11 @@ public:
     void setOnInviteUser(Callback2Str cb)      { onInviteUser_      = cb; }
     void setOnRemoveMember(Callback2Str cb)    { onRemoveMember_    = cb; }
     void setOnTransferAdmin(Callback2Str cb)   { onTransferAdmin_   = cb; }
-    void setOnAcceptInvitation(CallbackStr cb) { onAcceptInv_       = cb; }
-    void setOnRefreshDirs(Callback0 cb)        { onRefreshDirs_     = cb; }
-    void setOnLogout(Callback0 cb)             { onLogout_          = cb; }
+    void setOnAcceptInvitation(CallbackStr cb)  { onAcceptInv_       = cb; }
+    void setOnDeclineInvitation(CallbackStr cb) { onDeclineInv_     = cb; }
+    void setOnRefreshDirs(Callback0 cb)         { onRefreshDirs_    = cb; }
+    void setOnLogout(Callback0 cb)              { onLogout_         = cb; }
+    void setOnlineUsers(const QStringList& users) { onlineUsers_    = users; }
 
 signals:
     void syncStatusChanged(const QString& status);
@@ -90,6 +96,7 @@ private slots:
     void onRemoveMemberClicked();
     void onTransferAdminClicked();
     void onAcceptInvClicked();
+    void onDeclineInvClicked();
     void onRefreshClicked();
     void onLogoutClicked();
     void onDirSelectionChanged();
@@ -102,12 +109,15 @@ private:
     QListWidget* memberList_;
     QListWidget* invitationList_;
     QListWidget* transferLog_;
+    QTreeWidget* fileList_;
+    QLabel*      localPathLabel_;
     QLabel*      syncStatusLabel_;
     QPushButton* createDirBtn_;
     QPushButton* inviteBtn_;
     QPushButton* removeMemberBtn_;
     QPushButton* transferAdminBtn_;
     QPushButton* acceptInvBtn_;
+    QPushButton* declineInvBtn_;
     QPushButton* refreshBtn_;
     QPushButton* logoutBtn_;
 
@@ -115,6 +125,7 @@ private:
     QStringList dirIds_;
     QStringList invIds_;
     QString     selectedDirId_;
+    QStringList onlineUsers_;
 
     // Timer de polling (30 s)
     QTimer* pollTimer_;
@@ -125,6 +136,7 @@ private:
     Callback2Str  onRemoveMember_;
     Callback2Str  onTransferAdmin_;
     CallbackStr   onAcceptInv_;
+    CallbackStr   onDeclineInv_;
     Callback0     onRefreshDirs_;
     Callback0     onLogout_;
 

@@ -268,6 +268,10 @@ HttpResponse RESTServer::route(HttpRequest& req) {
     if (m == "POST" && pp.size() == 3 && pp[0] == "invitations" && pp[2] == "accept")
         return handlePostAcceptInvitation(req);
 
+    // POST /invitations/{id}/decline
+    if (m == "POST" && pp.size() == 3 && pp[0] == "invitations" && pp[2] == "decline")
+        return handlePostDeclineInvitation(req);
+
     // POST /sync/{dir_id}
     if (m == "POST" && pp.size() == 2 && pp[0] == "sync")
         return handlePostSync(req);
@@ -447,6 +451,19 @@ HttpResponse RESTServer::handlePostAcceptInvitation(HttpRequest& req) {
     Json resp = Json::object();
     resp["message"]      = Json(std::string("Invitation acceptée"));
     resp["directory_id"] = Json(inv.directory_id);
+    return HttpResponse::ok(resp.dump());
+}
+
+HttpResponse RESTServer::handlePostDeclineInvitation(HttpRequest& req) {
+    std::string invId = req.pathParts[1];
+    Invitation inv = pm_.getInvitation(invId);
+    if (inv.id.empty() || inv.to_user != req.authUser)
+        return HttpResponse::error(404, "Invitation introuvable");
+    if (inv.status != "pending")
+        return HttpResponse::error(409, "Invitation déjà traitée");
+    pm_.declineInvitation(invId, req.authUser);
+    Json resp = Json::object();
+    resp["message"] = Json(std::string("Invitation refusée"));
     return HttpResponse::ok(resp.dump());
 }
 

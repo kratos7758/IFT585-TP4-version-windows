@@ -43,8 +43,13 @@ public:
     enum class Status { IDLE, SYNCING, SYNC_ERROR, OFFLINE };
     Status getStatus() const { return status_; }
 
-    using StatusCallback = std::function<void(Status)>;
-    void setStatusCallback(StatusCallback cb) { statusCb_ = cb; }
+    using StatusCallback  = std::function<void(Status)>;
+    using LogCallback     = std::function<void(const std::string&)>;
+    using RefreshCallback = std::function<void()>;
+
+    void setStatusCallback(StatusCallback cb)   { statusCb_  = cb; }
+    void setLogCallback(LogCallback cb)         { logCb_     = cb; }
+    void setRefreshCallback(RefreshCallback cb) { refreshCb_ = cb; }
 
 private:
     NetworkProvider&    net_;
@@ -62,7 +67,9 @@ private:
     std::map<std::string, FileMetadata> localIndex_;
     std::mutex                          indexMu_;
 
-    StatusCallback statusCb_;
+    StatusCallback  statusCb_;
+    LogCallback     logCb_;
+    RefreshCallback refreshCb_;
 
     void eventLoop();
     void timerLoop();

@@ -8,10 +8,12 @@
 #include "../common/json.h"
 #include <QApplication>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QStringList>
 #include <iostream>
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
 
 // ================================================================
 //  Constructeur / Destructeur
@@ -69,6 +71,7 @@ int ClientApp::run(int argc, char* argv[]) {
     mainWin_->setOnRemoveMember([this](const std::string& d, const std::string& u){ removeMember(d,u); });
     mainWin_->setOnTransferAdmin([this](const std::string& d, const std::string& u){ transferAdmin(d,u); });
     mainWin_->setOnAcceptInvitation([this](const std::string& i){ acceptInvitation(i); });
+    mainWin_->setOnDeclineInvitation([this](const std::string& i){ declineInvitation(i); });
     mainWin_->setOnRefreshDirs([this](){ refreshUI(); });
     mainWin_->setOnLogout([this](){
         disconnect();
@@ -168,13 +171,42 @@ void ClientApp::acceptInvitation(const std::string& invId) {
     }
 }
 
+void ClientApp::declineInvitation(const std::string& invId) {
+    HttpResult res = net_.post("/invitations/" + invId + "/decline", "{}");
+    if (res.ok()) {
+        mainWin_->appendTransferLog("Invitation refusée");
+        refreshUI();
+    } else {
+        mainWin_->appendTransferLog("Erreur refus invitation");
+    }
+}
+
 // ================================================================
 //  Rafraîchissement de l'interface
 // ================================================================
 void ClientApp::refreshUI() {
     if (!mainWin_) return;
 
+    // ---- Utilisateurs en ligne ----
+    HttpResult usersRes = net_.get("/users");
+    if (usersRes.ok()) {
+        Json uresp;
+        try { uresp = Json::parse(usersRes.body); } catch (...) {}
+        if (uresp.contains("users") && uresp.at("users").is_array()) {
+            QStringList onlineUsers;
+            for (const auto& u : uresp.at("users").get_array()) {
+                if (u.at("status").get_string() == "online") {
+                    QString uname = QString::fromStdString(u.at("username").get_string());
+                    if (uname != QString::fromStdString(username_))
+                        onlineUsers << uname;
+                }
+            }
+            mainWin_->setOnlineUsers(onlineUsers);
+        }
+    }
+
     // ---- Répertoires ----
+    std::map<std::string, std::string> dirIdToName;
     HttpResult dirRes = net_.get("/directories");
     if (dirRes.ok()) {
         Json resp;
@@ -182,8 +214,11 @@ void ClientApp::refreshUI() {
         if (resp.contains("directories") && resp.at("directories").is_array()) {
             QStringList names, ids;
             for (const auto& d : resp.at("directories").get_array()) {
-                names << QString::fromStdString(d.at("name").get_string());
-                ids   << QString::fromStdString(d.at("id").get_string());
+                std::string dname = d.at("name").get_string();
+                std::string did   = d.at("id").get_string();
+                names << QString::fromStdString(dname);
+                ids   << QString::fromStdString(did);
+                dirIdToName[did] = dname;
 
                 std::string dirId = d.at("id").get_string();
                 ensureLocalDir(dirId);
@@ -213,14 +248,49 @@ void ClientApp::refreshUI() {
         if (resp.contains("invitations") && resp.at("invitations").is_array()) {
             QStringList labels, ids;
             for (const auto& inv : resp.at("invitations").get_array()) {
-                QString label = QString("De %1 → %2")
+                std::string did  = inv.at("directory_id").get_string();
+                std::string dname = dirIdToName.count(did) ? dirIdToName[did] : did;
+                QString label = QString("De %1 → \"%2\"")
                     .arg(QString::fromStdString(inv.at("from_user").get_string()))
-                    .arg(QString::fromStdString(inv.at("directory_id").get_string()));
+                    .arg(QString::fromStdString(dname));
                 labels << label;
                 ids    << QString::fromStdString(inv.at("id").get_string());
             }
             mainWin_->setInvitations(labels, ids);
         }
+    }
+
+    // ---- Fichiers du répertoire sélectionné ----
+    std::string selDir = mainWin_->getSelectedDirId().toStdString();
+    if (!selDir.empty()) {
+        std::string path = localPath(selDir);
+        // Convertir les slashes en antislashes pour l'affichage Windows
+        std::string displayPath = path;
+        for (char& c : displayPath) if (c == '/') c = '\\';
+        mainWin_->setLocalPath(displayPath);
+
+        QList<QStringList> rows;
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        for (const auto& entry : fs::directory_iterator(path, ec)) {
+            if (ec || !entry.is_regular_file()) continue;
+            std::string name = entry.path().filename().string();
+            if (name.empty() || name[0] == '.') continue;
+            long long size = (long long)entry.file_size(ec);
+            std::string hash = SHA256::hashFile(entry.path().string());
+
+            QString sizeStr;
+            if (size < 1024)            sizeStr = QString("%1 o").arg(size);
+            else if (size < 1024*1024)  sizeStr = QString("%1 Ko").arg(size / 1024);
+            else                        sizeStr = QString("%1 Mo").arg(size / (1024*1024));
+
+            rows.append({
+                QString::fromStdString(name),
+                sizeStr,
+                QString::fromStdString(hash.substr(0, 16)) + "..."
+            });
+        }
+        mainWin_->setFiles(rows);
     }
 
     mainWin_->setSyncStatus("idle");
@@ -248,15 +318,36 @@ void ClientApp::startSyncForDir(const std::string& dirId) {
 
     auto engine = std::make_unique<SyncEngine>(net_, *watcher, path, dirId, username_);
 
-    // Callback de statut → GUI
+    // Callback de statut → GUI (thread-safe via QMetaObject)
     engine->setStatusCallback([this](SyncEngine::Status s) {
         if (!mainWin_) return;
+        std::string st;
         switch (s) {
-        case SyncEngine::Status::SYNCING: mainWin_->setSyncStatus("syncing"); break;
+        case SyncEngine::Status::SYNCING:    st = "syncing"; break;
         case SyncEngine::Status::SYNC_ERROR:
-        case SyncEngine::Status::OFFLINE: mainWin_->setSyncStatus("offline"); break;
-        default: mainWin_->setSyncStatus("idle"); break;
+        case SyncEngine::Status::OFFLINE:    st = "offline"; break;
+        default:                             st = "idle";    break;
         }
+        MainWindow* w = mainWin_;
+        QMetaObject::invokeMethod(w, [w, st]() { w->setSyncStatus(st); },
+                                  Qt::QueuedConnection);
+    });
+
+    // Callback de log → Journal Qt (thread-safe)
+    engine->setLogCallback([this](const std::string& msg) {
+        if (!mainWin_) return;
+        MainWindow* w = mainWin_;
+        std::string m = msg;
+        QMetaObject::invokeMethod(w, [w, m]() { w->appendTransferLog(m); },
+                                  Qt::QueuedConnection);
+    });
+
+    // Callback de rafraîchissement → panneau fichiers (thread-safe)
+    engine->setRefreshCallback([this]() {
+        if (!mainWin_) return;
+        MainWindow* w = mainWin_;
+        QMetaObject::invokeMethod(w, [this, w]() { refreshUI(); },
+                                  Qt::QueuedConnection);
     });
 
     engine->start();

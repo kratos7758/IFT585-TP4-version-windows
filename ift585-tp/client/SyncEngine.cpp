@@ -143,6 +143,7 @@ void SyncEngine::runSyncCycle() {
 
     setStatus(Status::IDLE);
     std::cout << "[SyncEngine] Synchronisation terminée.\n";
+    if (refreshCb_) refreshCb_();
 }
 
 // ================================================================
@@ -199,11 +200,15 @@ void SyncEngine::uploadFile(const std::string& name) {
     std::string data = ss.str();
 
     HttpResult res = net_.uploadFile(dirId_, name, data);
-    if (res.ok())
-        std::cout << "[SyncEngine] Upload OK : " << name << " (" << data.size() << " octets)\n";
-    else
-        std::cerr << "[SyncEngine] Upload ÉCHEC : " << name
-                  << " (HTTP " << res.statusCode << ")\n";
+    if (res.ok()) {
+        std::string msg = "Upload OK : " + name + " (" + std::to_string(data.size()) + " octets)";
+        std::cout << "[SyncEngine] " << msg << "\n";
+        if (logCb_) logCb_(msg);
+    } else {
+        std::string msg = "Upload ÉCHEC : " + name + " (HTTP " + std::to_string(res.statusCode) + ")";
+        std::cerr << "[SyncEngine] " << msg << "\n";
+        if (logCb_) logCb_(msg);
+    }
 }
 
 void SyncEngine::downloadFile(const FileMetadata& meta) {
@@ -221,8 +226,9 @@ void SyncEngine::downloadFile(const FileMetadata& meta) {
         return;
     }
     f.write(res.body.c_str(), (std::streamsize)res.body.size());
-    std::cout << "[SyncEngine] Download OK : " << meta.name
-              << " (" << res.body.size() << " octets)\n";
+    std::string msg = "Download OK : " + meta.name + " (" + std::to_string(res.body.size()) + " octets)";
+    std::cout << "[SyncEngine] " << msg << "\n";
+    if (logCb_) logCb_(msg);
 }
 
 void SyncEngine::deleteLocalFile(const std::string& name) {

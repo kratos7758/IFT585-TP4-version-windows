@@ -140,10 +140,33 @@ void MainWindow::setupUi() {
     QVBoxLayout* invLayout = new QVBoxLayout(invTab);
     invitationList_ = new QListWidget(invTab);
     invLayout->addWidget(invitationList_);
-    acceptInvBtn_ = new QPushButton("Accepter", invTab);
-    invLayout->addWidget(acceptInvBtn_);
+    QHBoxLayout* invBtns = new QHBoxLayout();
+    acceptInvBtn_  = new QPushButton("Accepter", invTab);
+    declineInvBtn_ = new QPushButton("Refuser",  invTab);
+    declineInvBtn_->setStyleSheet("color: red;");
+    invBtns->addWidget(acceptInvBtn_);
+    invBtns->addWidget(declineInvBtn_);
+    invLayout->addLayout(invBtns);
     invTab->setLayout(invLayout);
     tabs->addTab(invTab, "Notifications");
+
+    // Onglet Fichiers
+    QWidget* filesTab = new QWidget();
+    QVBoxLayout* filesLayout = new QVBoxLayout(filesTab);
+    localPathLabel_ = new QLabel("Sélectionnez un répertoire", filesTab);
+    localPathLabel_->setStyleSheet("color: gray; font-size: 11px;");
+    localPathLabel_->setWordWrap(true);
+    filesLayout->addWidget(localPathLabel_);
+    fileList_ = new QTreeWidget(filesTab);
+    fileList_->setColumnCount(3);
+    fileList_->setHeaderLabels({"Nom", "Taille", "SHA-256"});
+    fileList_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    fileList_->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    fileList_->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    fileList_->setAlternatingRowColors(true);
+    filesLayout->addWidget(fileList_);
+    filesTab->setLayout(filesLayout);
+    tabs->addTab(filesTab, "Fichiers");
 
     // Onglet Journal
     QWidget* logTab = new QWidget();
@@ -167,6 +190,7 @@ void MainWindow::setupConnections() {
     connect(removeMemberBtn_, &QPushButton::clicked, this, &MainWindow::onRemoveMemberClicked);
     connect(transferAdminBtn_,&QPushButton::clicked, this, &MainWindow::onTransferAdminClicked);
     connect(acceptInvBtn_,    &QPushButton::clicked, this, &MainWindow::onAcceptInvClicked);
+    connect(declineInvBtn_,   &QPushButton::clicked, this, &MainWindow::onDeclineInvClicked);
     connect(refreshBtn_,      &QPushButton::clicked, this, &MainWindow::onRefreshClicked);
     connect(logoutBtn_,       &QPushButton::clicked, this, &MainWindow::onLogoutClicked);
     connect(dirList_, &QListWidget::currentRowChanged, this, &MainWindow::onDirSelectionChanged);
@@ -209,6 +233,21 @@ void MainWindow::setSyncStatus(const std::string& status) {
     }
 }
 
+void MainWindow::setFiles(const QList<QStringList>& rows) {
+    fileList_->clear();
+    for (const QStringList& row : rows) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(fileList_, row);
+        item->setTextAlignment(1, Qt::AlignRight | Qt::AlignVCenter);
+        fileList_->addTopLevelItem(item);
+    }
+    QString count = QString("(%1 fichier%2)").arg(rows.size()).arg(rows.size() > 1 ? "s" : "");
+    fileList_->setHeaderLabels({"Nom " + count, "Taille", "SHA-256"});
+}
+
+void MainWindow::setLocalPath(const std::string& path) {
+    localPathLabel_->setText("Dossier local : " + QString::fromStdString(path));
+}
+
 void MainWindow::appendTransferLog(const std::string& msg) {
     QString ts = QDateTime::currentDateTime().toString("[hh:mm:ss] ");
     transferLog_->addItem(ts + QString::fromStdString(msg));
@@ -232,8 +271,14 @@ void MainWindow::onInviteClicked() {
         return;
     }
     bool ok;
-    QString user = QInputDialog::getText(this, "Inviter un utilisateur",
-                                          "Nom d'utilisateur :", QLineEdit::Normal, "", &ok);
+    QString user;
+    if (!onlineUsers_.isEmpty()) {
+        user = QInputDialog::getItem(this, "Inviter un utilisateur",
+                                     "Utilisateurs en ligne :", onlineUsers_, 0, false, &ok);
+    } else {
+        user = QInputDialog::getText(this, "Inviter un utilisateur",
+                                      "Nom d'utilisateur :", QLineEdit::Normal, "", &ok);
+    }
     if (ok && !user.isEmpty() && onInviteUser_)
         onInviteUser_(selectedDirId_.toStdString(), user.toStdString());
 }
@@ -269,6 +314,18 @@ void MainWindow::onAcceptInvClicked() {
     }
     if (onAcceptInv_)
         onAcceptInv_(invIds_[row].toStdString());
+}
+
+void MainWindow::onDeclineInvClicked() {
+    int row = invitationList_->currentRow();
+    if (row < 0 || row >= invIds_.size()) {
+        QMessageBox::warning(this, "Invitation", "Sélectionnez une invitation."); return;
+    }
+    if (QMessageBox::question(this, "Refuser l'invitation",
+            "Refuser cette invitation ?") == QMessageBox::Yes) {
+        if (onDeclineInv_)
+            onDeclineInv_(invIds_[row].toStdString());
+    }
 }
 
 void MainWindow::onRefreshClicked() {

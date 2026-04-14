@@ -92,6 +92,7 @@ private:
     HttpResponse handlePutDirAdmin(HttpRequest& req);
     HttpResponse handleGetInvitations(HttpRequest& req);
     HttpResponse handlePostAcceptInvitation(HttpRequest& req);
+    HttpResponse handlePostDeclineInvitation(HttpRequest& req);
     HttpResponse handlePostSync(HttpRequest& req);
     HttpResponse handlePutFile(HttpRequest& req);
     HttpResponse handleGetFile(HttpRequest& req);

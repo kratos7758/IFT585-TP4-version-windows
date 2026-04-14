@@ -51,6 +51,7 @@ private:
     void removeMember(const std::string& dirId, const std::string& user);
     void transferAdmin(const std::string& dirId, const std::string& user);
     void acceptInvitation(const std::string& invId);
+    void declineInvitation(const std::string& invId);
     void refreshUI();
 
     // ---- Helpers ----
