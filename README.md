@@ -1,31 +1,103 @@
-# IFT585 – TP4 : Système de partage de fichiers distribué
-## Guide d'exécution et de correction
+# Guide de compilation et de test – IFT585-TP4
+## Windows natif (sans WSL)
 
 ---
 
-## Prérequis
+## 1. Prérequis – Logiciels à installer
 
-- Windows 10 ou Windows 11 (64-bit)
-- Git
-- **Rien d'autre à installer** — tous les binaires et DLLs sont inclus dans le dépôt
+### 1.1 CMake
+Télécharger et installer CMake depuis cmake.org (version 3.16 ou plus récente).
+Cocher "Add CMake to PATH" lors de l'installation.
 
----
+Vérification :
+```
+cmake --version
+```
 
-## Étape 1 — Cloner le dépôt
+### 1.2 MinGW-W64 (compilateur C++)
+Un MinGW-W64 récent doit être installé. Sur cette machine il se trouve dans :
+```
+C:\MinGW\mingw64\bin\g++.exe   (GCC 15.1.0)
+```
+Si absent, télécharger la version "x86_64 - posix - seh" depuis winlibs.com et extraire dans C:\MinGW\mingw64.
 
-```powershell
-git clone https://github.com/kratos7758/IFT585-TP4-version-windows.git
-cd IFT585-TP4-version-windows\ift585-tp
+Vérification :
+```
+C:\MinGW\mingw64\bin\g++.exe --version
+```
+
+### 1.3 Qt 6.4.2
+Qt est installé dans C:\Qt\6.4.2\mingw_64 sur cette machine.
+Si absent, installer via Chocolatey (PowerShell administrateur) :
+```
+choco install qt6-base-dev -y
+```
+Ou télécharger l'installeur depuis qt.io (compte gratuit requis) et sélectionner Qt 6.x > MinGW 64-bit.
+
+Vérification :
+```
+C:\Qt\6.4.2\mingw_64\bin\qmake.exe --version
 ```
 
 ---
 
-## Étape 2 — Lancer le serveur
+## 2. Compilation
 
-Ouvrir un terminal PowerShell et le **laisser ouvert** pendant toute la durée des tests :
+Ouvrir **PowerShell** et exécuter les commandes suivantes.
+
+### 2.1 Compiler le serveur
 
 ```powershell
-cd server
+cd "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp"
+
+Remove-Item -Recurse -Force build-server -ErrorAction SilentlyContinue
+mkdir build-server
+cd build-server
+
+cmake ..\server -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/MinGW/mingw64/bin/g++.exe"
+
+mingw32-make
+```
+
+Résultat attendu : `[100%] Built target server_ift585`
+Binaire produit : `ift585-tp\server\server_ift585.exe`
+
+### 2.2 Compiler le client
+
+```powershell
+cd "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp"
+
+Remove-Item -Recurse -Force build-client -ErrorAction SilentlyContinue
+mkdir build-client
+cd build-client
+
+cmake ..\client -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/MinGW/mingw64/bin/g++.exe" -DCMAKE_PREFIX_PATH="C:/Qt/6.4.2/mingw_64"
+
+mingw32-make
+```
+
+Résultat attendu : `[100%] Built target client_ift585`
+Binaire produit : `ift585-tp\bin\client_ift585.exe`
+
+### 2.3 Déployer les DLLs Qt (une seule fois)
+
+```powershell
+cd "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\bin"
+
+C:\Qt\6.4.2\mingw_64\bin\windeployqt.exe .\client_ift585.exe
+```
+
+Cette commande copie automatiquement toutes les DLLs Qt nécessaires à côté de l'exécutable.
+
+---
+
+## 3. Lancer le serveur
+
+Ouvrir un **nouveau terminal PowerShell** et le laisser ouvert pendant tous les tests :
+
+```powershell
+cd "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\server"
+
 .\server_ift585.exe --data .\data --tcp-port 8080 --udp-port 8888
 ```
 
@@ -43,32 +115,35 @@ Sortie attendue :
 
 ---
 
-## Étape 3 — Lancer les clients
+## 4. Lancer les clients
 
-Ouvrir **3 terminaux PowerShell séparés**. Dans chacun, exécuter :
+Ouvrir **3 terminaux PowerShell séparés**. Dans chacun :
 
 ```powershell
-cd IFT585-TP4-version-windows\ift585-tp\bin
+cd "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\bin"
+
 .\client_ift585.exe
 ```
 
-> Si Windows affiche une alerte de sécurité SmartScreen, cliquer **"Informations complémentaires"** puis **"Exécuter quand même"**.
+> Si Windows affiche une alerte SmartScreen, cliquer "Informations complémentaires" puis "Exécuter quand même".
 
 ---
 
-## Étape 4 — Scénarios de test
+## 5. Scénarios de test
 
-### TEST 1 — Authentification UDP (protocole stop-and-wait)
+### TEST 1 — Authentification UDP (stop-and-wait)
 
-Dans chaque fenêtre client, entrer les informations suivantes et cliquer **Connexion** :
+Dans chaque fenêtre cliente, entrer :
 
-| Fenêtre | Serveur IP | Utilisateur | Mot de passe |
-|---------|------------|-------------|--------------|
-| Client 1 | 127.0.0.1 | alain | alain123 |
-| Client 2 | 127.0.0.1 | marc | marc123 |
-| Client 3 | 127.0.0.1 | moustapha | moust123 |
+| Champ       | Utilisateur 1 | Utilisateur 2 | Utilisateur 3 |
+|-------------|---------------|---------------|---------------|
+| Serveur IP  | 127.0.0.1     | 127.0.0.1     | 127.0.0.1     |
+| Utilisateur | alain         | marc          | moustapha     |
+| Mot de passe| alain123      | marc123       | moust123      |
 
-**Ce qu'on vérifie dans le terminal serveur :**
+Cliquer **Connexion** dans chaque fenêtre.
+
+Ce qu'on vérifie dans le terminal serveur :
 ```
 [AuthUDP] Nouvel utilisateur enregistré : alain
 [AuthUDP] Authentification réussie pour : alain
@@ -77,7 +152,7 @@ Dans chaque fenêtre client, entrer les informations suivantes et cliquer **Conn
 [AuthUDP] Nouvel utilisateur enregistré : moustapha
 [AuthUDP] Authentification réussie pour : moustapha
 ```
-Chaque `AUTH_REQ` reçoit un `AUTH_ACK` contenant un SessionToken UUID.
+Chaque AUTH_REQ reçoit un AUTH_ACK avec un SessionToken UUID.
 
 ---
 
@@ -88,10 +163,10 @@ Sur le client d'**alain** :
 2. Saisir : `Projet-IFT585`
 3. Valider
 
-**Ce qu'on vérifie :**
+Ce qu'on vérifie :
 - Le répertoire `Projet-IFT585` apparaît dans la liste à gauche
-- `alain` apparaît dans la liste des membres
-- Le statut passe brièvement à "Synchronisation en cours..." puis "Synchronisé"
+- Le membre `alain` apparaît dans la liste "Membres"
+- Le statut passe brièvement à "Synchronisation en cours..." puis revient à "Synchronisé"
 - Dans le terminal serveur : `POST /directories` reçu
 
 ---
@@ -99,14 +174,14 @@ Sur le client d'**alain** :
 ### TEST 3 — Invitation d'un utilisateur
 
 Sur le client d'**alain** :
-1. Sélectionner `Projet-IFT585`
+1. Sélectionner `Projet-IFT585` dans la liste
 2. Cliquer **"Inviter"**
-3. Saisir : `marc` → Valider
+3. Saisir : `marc`
+4. Valider
 
-Sur le client de **marc** :
-4. Une notification d'invitation apparaît → cliquer **Accepter**
-
-**Ce qu'on vérifie :**
+Ce qu'on vérifie :
+- Sur le client de **marc** : une notification d'invitation apparaît
+- marc clique **Accepter**
 - `marc` apparaît dans la liste des membres de `Projet-IFT585`
 - Dans le terminal serveur : `POST /invitations` puis `PUT /invitations/{id}/accept` reçus
 
@@ -115,13 +190,13 @@ Sur le client de **marc** :
 ### TEST 4 — Synchronisation de fichiers
 
 Sur le client d'**alain** (répertoire `Projet-IFT585` sélectionné) :
-1. Cliquer **"Envoyer un fichier"**
-2. Choisir un fichier quelconque (ex. un fichier texte)
+1. Cliquer **"Envoyer un fichier"** (ou glisser-déposer un fichier)
+2. Choisir n'importe quel fichier texte
 
-**Ce qu'on vérifie :**
-- Le fichier apparaît dans la liste d'alain avec son hash SHA-256
+Ce qu'on vérifie :
+- Le fichier apparaît dans la liste des fichiers d'alain
 - Dans le terminal serveur : `PUT /files/{dir_id}/{nom}` reçu
-- Sur le client de **marc** : le fichier apparaît automatiquement (synchronisation polling)
+- Sur le client de **marc** : le fichier apparaît automatiquement (sync polling 30 s ou push)
 
 ---
 
@@ -130,46 +205,37 @@ Sur le client d'**alain** (répertoire `Projet-IFT585` sélectionné) :
 Sur le client d'**alain** :
 1. Cliquer **"Déconnexion"**
 
-**Ce qu'on vérifie dans le terminal serveur :**
+Ce qu'on vérifie dans le terminal serveur :
 ```
 [AuthUDP] Déconnexion de : alain
 ```
+Le statut d'alain passe à "offline" dans les données serveur (`data/clients.json`).
 
 ---
 
-## Vérification des données persistées
+## 6. Vérification des données serveur
 
-Les fichiers JSON du serveur sont dans `server\data\` :
+Les données persistées sont dans `ift585-tp\server\data\` :
 
 ```powershell
-# Utilisateurs enregistrés
-type server\data\clients.json
+# Voir les utilisateurs enregistrés
+type "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\server\data\clients.json"
 
-# Répertoires partagés
-type server\data\directories.json
+# Voir les répertoires créés
+type "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\server\data\directories.json"
 
-# Invitations
-type server\data\invitations.json
+# Voir les invitations
+type "C:\Users\Administrateur\Desktop\mes cours\IFT585 telematique\TP4\iftversionmous\ift585-tp\server\data\invitations.json"
 ```
 
 ---
 
-## Architecture du projet
+## 7. Résolution de problèmes
 
-| Composant | Protocole | Port | Rôle |
-|-----------|-----------|------|------|
-| Authentification | UDP stop-and-wait | 8888 | AUTH_REQ / AUTH_ACK / AUTH_NAK |
-| API REST | TCP (HTTP) | 8080 | Répertoires, fichiers, invitations |
-| Surveillance locale | - | - | Détection des changements de fichiers |
-| Moteur de sync | - | - | Comparaison SHA-256, upload/download |
-
----
-
-## En cas de problème
-
-| Symptôme | Solution |
-|----------|----------|
-| La fenêtre client se ferme immédiatement | Vérifier que le dossier `bin\` contient bien les fichiers `.dll` |
-| `Port already in use` | Changer les ports : `--tcp-port 8081 --udp-port 8889` |
-| Alerte SmartScreen | Cliquer "Informations complémentaires" > "Exécuter quand même" |
-| Le serveur ne démarre pas | Vérifier que les fichiers `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` sont dans `server\` |
+| Symptôme | Cause probable | Solution |
+|----------|---------------|----------|
+| `client_ift585.exe` se ferme immédiatement | DLLs Qt manquantes | Relancer `windeployqt.exe` (section 2.3) |
+| `std::mutex` does not name a type | Vieux MinGW (mingw.org) | Utiliser `C:/MinGW/mingw64/bin/g++.exe` |
+| `ssize_t` conflicting declaration | MinGW-W64 64-bit redéfinit `ssize_t` | Déjà corrigé dans `platform.h` |
+| Port déjà utilisé | Un autre processus utilise 8080 ou 8888 | Changer les ports avec `--tcp-port` et `--udp-port` |
+| Alerte SmartScreen au lancement | Exécutable non signé | Cliquer "Informations complémentaires" > "Exécuter quand même" |
