@@ -54,7 +54,7 @@ int ClientApp::run(int argc, char* argv[]) {
     // Hacher le mot de passe avant envoi
     std::string passHash = SHA256::hash(pass);
 
-    net_.setServer(ip, 8888, 8080);
+    net_.setServer(ip, 8888, 80);
     if (!connectToServer(ip, user, passHash)) {
         QMessageBox::critical(nullptr, "Erreur",
             "Connexion échouée après 3 tentatives.\nVérifiez l'IP et les identifiants.");
