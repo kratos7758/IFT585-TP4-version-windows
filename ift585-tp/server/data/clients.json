@@ -1,22 +1,29 @@
 {
   "clients": [
     {
-      "username": "alice",
-      "password_hash": "3d0941b85d78c82c5e2a9a3d6b9e4f8a1c7b2e5d9f3a6c8e1b4d7f0a2c5e8b1",
+      "username": "alain",
+      "password_hash": "eb9512d8149684a621bf8bd30933bd8c657c6dd9e307874b81e6dec93b17453f",
       "session_token": "",
       "status": "offline",
       "token_expiry": 0
     },
     {
-      "username": "bob",
-      "password_hash": "7f4e9c2a8d1b6f3e0c5a9b2d8e7f1c4a6b9e3d0f7c2a5b8e1d4f7a0c3b6e9d",
+      "username": "marc",
+      "password_hash": "4697c20f8a70fcad6323e007d553cfe05d4433f81be70884ea3b4834b147f4c1",
+      "session_token": "",
+      "status": "offline",
+      "token_expiry": 0
+    },
+    {
+      "username": "moustapha",
+      "password_hash": "c2b782bd78fd41d99c8b43a59aeef731fe2475ea82042526ec7e69e2ab8d08e0",
       "session_token": "",
       "status": "offline",
       "token_expiry": 0
     },
     {
       "username": "charlie",
-      "password_hash": "2a8f5c1e9b4d7a3f6c0e8b5d2f9a6c3e7b1d4f8a2c5e9b3d6f0a4c7e1b5d8f",
+      "password_hash": "1afda89737a745f15d42807d54f67c803727d75ce443b0f3a659531b38ae660f",
       "session_token": "",
       "status": "offline",
       "token_expiry": 0
