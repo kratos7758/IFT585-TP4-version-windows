@@ -1,11 +1,27 @@
-# Dossiers de build
-ift585-tp/build-server/
+# Dossiers de build CMake
+build-client/
+build-server/
 ift585-tp/build-client/
+ift585-tp/build-server/
 
-# Binaire Linux (remplacé par les .exe Windows)
-ift585-tp/bin/client_ift585
-ift585-tp/server/server_ift585
-
-# Fichiers objets
+# Fichiers objets (artefacts de compilation)
 *.o
 *.obj
+*.a
+
+# Binaires Linux (pas utiles sur Windows)
+ift585-tp/server/server_ift585
+ift585-tp/bin/client_ift585
+
+# Fichiers de test uploadés sur le serveur (données personnelles)
+ift585-tp/server/data/files/
+
+# Artefacts Qt/qmake et MOC
+*.qmake.stash
+*.pro.user
+moc_*.cpp
+moc_predefs.h
+
+# Makefiles générés par CMake
+ift585-tp/client/Makefile
+ift585-tp/server/Makefile
