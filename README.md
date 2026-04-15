@@ -7,8 +7,9 @@
 
 | Utilisateur | Mot de passe |
 |-------------|-------------|
-| alice       | alice123    |
-| bob         | bob123      |
+| alain      | alain    |
+| marc        | marc     |
+| moustapha       | moustapha   |
 | charlie     | charlie123  |
 
 > Les mots de passe sont stockés sous forme de hash SHA-256 dans `ift585-tp/server/data/clients.json`.
@@ -179,12 +180,12 @@ Suivre les étapes **A.1** et **A.2** ci-dessus.
 
 ### TEST 1 — Authentification UDP (protocole stop-and-wait)
 
-Lancer 3 clients, se connecter avec alice, bob, charlie sur `127.0.0.1`.
+Lancer 3 clients, se connecter avec alain, marc, charlie sur `127.0.0.1`.
 
 Dans le terminal serveur, vérifier :
 ```
-[UDP] Authentification réussie pour : alice
-[UDP] Authentification réussie pour : bob
+[UDP] Authentification réussie pour : alain
+[UDP] Authentification réussie pour : marc
 [UDP] Authentification réussie pour : charlie
 ```
 
@@ -192,7 +193,7 @@ Dans le terminal serveur, vérifier :
 
 ### TEST 2 — Création d'un répertoire partagé
 
-Sur le client **alice** :
+Sur le client **alain** :
 1. Cliquer **"+ Nouveau"**
 2. Saisir un nom (ex: `Projet-TP4`)
 3. Valider
@@ -203,38 +204,38 @@ Résultat : le répertoire apparaît dans la liste, alice en est l'administrateu
 
 ### TEST 3 — Invitation d'un utilisateur
 
-Sur le client **alice** :
+Sur le client **alain** :
 1. Sélectionner `Projet-TP4`
-2. Cliquer **"Inviter"** → choisir `bob` dans la liste des utilisateurs en ligne
+2. Cliquer **"Inviter"** → choisir `marc` dans la liste des utilisateurs en ligne
 3. Valider
 
-Sur le client **bob** :
+Sur le client **alain** :
 1. Onglet **Notifications** → invitation visible : `De alice → "Projet-TP4"`
 2. Cliquer **"Accepter"**
 
-Résultat : `bob` apparaît dans la liste des membres du répertoire.
+Résultat : `marc` apparaît dans la liste des membres du répertoire.
 
 ---
 
 ### TEST 4 — Transfert et synchronisation de fichiers
 
-Sur la machine d'**alice**, copier un fichier dans le dossier local synchronisé :
+Sur la machine d'**alain**, copier un fichier dans le dossier local synchronisé :
 ```
 C:\Users\{VotreNom}\IFT585-TP\{uuid-du-répertoire}\
 ```
 L'UUID est visible dans le journal ou dans `server/data/directories.json`.
 
 Résultat :
-- Onglet **Journal** (alice) : `Upload OK : monfichier.txt (1234 octets)`
-- Onglet **Fichiers** (alice) : le fichier apparaît avec sa taille et son hash SHA-256
-- Sur le client **bob** : le fichier se synchronise automatiquement (max 30 secondes)
-- Onglet **Journal** (bob) : `Download OK : monfichier.txt (1234 octets)`
+- Onglet **Journal** (alain) : `Upload OK : monfichier.txt (1234 octets)`
+- Onglet **Fichiers** (alain) : le fichier apparaît avec sa taille et son hash SHA-256
+- Sur le client **marc** : le fichier se synchronise automatiquement (max 30 secondes)
+- Onglet **Journal** (marc) : `Download OK : monfichier.txt (1234 octets)`
 
 ---
 
 ### TEST 5 — Déconnexion propre
 
-Sur le client **alice** :
+Sur le client **alain** :
 1. Cliquer **"Déconnexion"**
 
 Dans le terminal serveur :
@@ -254,7 +255,6 @@ Dans le terminal serveur :
 | TCP       | 80   | API REST (transfert de fichiers, répertoires, invitations) |
 
 > Le port TCP 80 nécessite des droits **administrateur** sur Windows.
-> À l'université, utiliser le port 80 ou 443 (les autres ports sont fermés).
 > Pour changer les ports : `server_ift585.exe --udp-port 8888 --tcp-port 80`
 
 ---
@@ -291,7 +291,7 @@ ift585-tp/
 │   ├── libwinpthread-1.dll  DLL MinGW requise
 │   ├── CMakeLists.txt
 │   └── data/
-│       ├── clients.json     Comptes utilisateurs (alice, bob, charlie)
+│       ├── clients.json     Comptes utilisateurs (alain, marc, charlie)
 │       ├── directories.json Répertoires partagés
 │       ├── invitations.json Invitations en attente
 │       └── files/           Fichiers synchronisés (créé automatiquement)
@@ -303,16 +303,3 @@ ift585-tp/
     ├── Qt6Widgets.dll
     └── ...                  (autres DLLs Qt)
 ```
-
----
-
-## Résolution de problèmes
-
-| Symptôme | Cause probable | Solution |
-|----------|---------------|----------|
-| `client_ift585.exe` se ferme immédiatement | DLLs Qt manquantes | Lancer depuis `ift585-tp\bin\` et non depuis un autre dossier |
-| `[TCP] connect() erreur` dans le client | Serveur non lancé ou mauvais port | Vérifier que `server_ift585.exe` tourne et affiche "port 80" |
-| Accès refusé au port 80 | Droits insuffisants | Lancer le terminal **en tant qu'administrateur** |
-| `std::mutex` does not name a type | Vieux MinGW 32-bit | Utiliser `C:\MinGW\mingw64\bin\g++.exe` (64-bit) |
-| Alerte SmartScreen | Exécutable non signé | Cliquer "Informations complémentaires" → "Exécuter quand même" |
-| Port 80 déjà occupé | IIS ou autre serveur web actif | Arrêter IIS : `net stop w3svc` ou utiliser `--tcp-port 8080` |
